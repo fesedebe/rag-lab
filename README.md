@@ -1,2 +1,2 @@
 # rag-lab
-RAG demos using LangChain
+A minimal retrieval-augmented generation (RAG) pipeline using LangChain and FLAN-T5.
