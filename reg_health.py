@@ -36,3 +36,21 @@ generator_pipeline = pipeline(
 
 llm = HuggingFacePipeline(pipeline=generator_pipeline)
 print("Initialized FLAN-T5 generator.")
+
+# Create the RAG chain
+from langchain.chains import RetrievalQA
+
+rag_chain = RetrievalQA.from_chain_type(
+    llm=llm,
+    retriever=retriever,
+    return_source_documents=True
+)
+
+# Example query
+query = "What do regulatory guidelines emphasize about data transparency?"
+result = rag_chain({"query": query})
+
+print("Answer:\n", result['result'])
+print("\nSource Documents:")
+for doc in result['source_documents']:
+    print(f"- {doc.metadata['source']}")
