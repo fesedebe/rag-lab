@@ -7,6 +7,8 @@ import time
 import requests
 from xml.etree import ElementTree
 from bs4 import BeautifulSoup
+import json
+from pathlib import Path
 
 # Configuration Defaults
 PUBMED_DEFAULT_TERMS = [
@@ -52,7 +54,7 @@ def fetch_abstract(pmid):
     return title.strip(), abstract.strip()
 
 # Fetch abstracts for a list of PubMed search terms
-def fetch_pubmed_corpus(terms, n_results=2, sleep=1.5, verbose=True):
+def fetch_pubmed_corpus(terms, n_results=2, sleep=1.5, verbose=True, save_txt=True, save_jsonl=True):
     os.makedirs(OUT_DIR, exist_ok=True)
     for term in terms:
         if verbose:
@@ -67,8 +69,12 @@ def fetch_pubmed_corpus(terms, n_results=2, sleep=1.5, verbose=True):
         for i, pmid in enumerate(pmids, start=1):
             try:
                 title, abstract = fetch_abstract(pmid)
-                filename = f"pubmed_{term.replace(' ', '_')}_{i}.txt"
-                save_text_file(filename, title, abstract)
+                if save_txt:
+                    filename = f"pubmed_{term.replace(' ', '_')}_{i}.txt"
+                    save_text_file(filename, title, abstract)
+                if save_jsonl:
+                    record = normalize_doc(f"pubmed_{pmid}", title, abstract, "PubMed")
+                    append_jsonl(record)
                 if verbose:
                     print(f"  Saved: {filename}")
             except Exception as e:
@@ -97,46 +103,57 @@ def fetch_fda_guideline_snippet(url, n_paragraphs=3):
     return snippet
 
 # Fetch text snippets from multiple FDA guidance documents
-def fetch_fda_corpus(guidelines, verbose=True):
+def fetch_fda_corpus(guidelines, verbose=True, save_txt=True, save_jsonl=True):
     os.makedirs(OUT_DIR, exist_ok=True)
     for name, url in guidelines.items():
         try:
             snippet = fetch_fda_guideline_snippet(url)
-            filename = f"fda_{name}.txt"
-            save_text_file(filename, name.replace('_', ' ').title(), snippet)
+            if save_txt:
+                filename = f"fda_{name}.txt"
+                save_text_file(filename, name.replace('_', ' ').title(), snippet)
+            if save_jsonl:
+                record = normalize_doc(f"fda_{name}", name.replace('_', ' ').title(), snippet, "FDA")
+                append_jsonl(record)
             if verbose:
                 print(f"Saved: {filename}")
         except Exception as e:
             if verbose:
                 print(f"Skipped {name}: {e}")
 
-# Shared Utility - Write text content to ./data/filename.
+# Shared Utility 
+# Write text content to ./data/filename.
 def save_text_file(filename, title, body):
     os.makedirs(OUT_DIR, exist_ok=True)
     with open(os.path.join(OUT_DIR, filename), "w", encoding="utf-8") as f:
         f.write(f"{title}\n\n{body}\n")
 
+# Append a record to a JSONL file
+def append_jsonl(record, out_path="data/corpus.jsonl"):
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "a", encoding="utf-8") as jf:
+        jf.write(json.dumps(record) + "\n")
+
+# Normalize structure for JSONL storage
+def normalize_doc(doc_id, title, text, source):
+    return {"doc_id": doc_id, "title": title, "text": text, "source": source}
+
 # Build PubMed & FDA corpora
 def gather_biomed_corpus(
-    pubmed_terms=None,
-    n_results=2,
-    sleep=1.5,
-    include_fda=True,
-    verbose=True
+    pubmed_terms=None, n_results=2,
+    sleep=1.5, include_fda=True,
+    verbose=True, save_txt=True, save_jsonl=True
 ):
     if pubmed_terms:
-        fetch_pubmed_corpus(pubmed_terms, n_results=n_results, sleep=sleep, verbose=verbose)
+        fetch_pubmed_corpus(pubmed_terms, n_results=n_results, sleep=sleep, verbose=verbose, save_txt=save_txt, save_jsonl=save_jsonl)
     if include_fda:
-        fetch_fda_corpus(FDA_GUIDELINES, verbose=verbose)
+        fetch_fda_corpus(FDA_GUIDELINES, verbose=verbose, save_txt=save_txt, save_jsonl=save_jsonl)
     if verbose:
         print("Corpus generation complete. Check ./data/ directory.")
 
 if __name__ == "__main__":
     # Example usage
     gather_biomed_corpus(
-        pubmed_terms=["eligibility criteria oncology"], #PUBMED_DEFAULT_TERMS, (full) or "regulatory compliance AI" (specific)
-        n_results=2,
-        sleep=2.0,
-        include_fda=False,
-        verbose=True
+        pubmed_terms=PUBMED_DEFAULT_TERMS, # ["regulatory compliance AI"], (specific), or [], (to skip)
+        n_results=2, sleep=2.0, include_fda=True,
+        verbose=True, save_txt=False, save_jsonl=True
     )
