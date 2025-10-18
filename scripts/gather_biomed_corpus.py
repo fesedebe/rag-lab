@@ -88,7 +88,7 @@ def clean_text(text):
     return text.replace("\xa0", " ").strip()
 
 # Fetch a few paragraphs from an FDA guidance webpage
-def fetch_fda_guideline_snippet(url, n_paragraphs=3):
+def fetch_fda_guideline_snippet(url, n_paragraphs=8):
     headers = {
         "User-Agent": "Mozilla/5.0 (compatible; CorpusFetcher/1.0)",
         "Accept-Language": "en-US,en;q=0.9"
@@ -96,10 +96,42 @@ def fetch_fda_guideline_snippet(url, n_paragraphs=3):
     resp = requests.get(url, headers=headers, timeout=10)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
-    paragraphs = soup.find_all("p")
+    
+    # Fetch the main body container first
+    body_div = soup.find("div", class_="field--name-body")
+    if body_div:
+        paragraphs = body_div.find_all("p")
+    else:
+        paragraphs = soup.find_all("p")
+    
     if not paragraphs:
         return "No content found."
-    snippet = " ".join(clean_text(p.get_text()) for p in paragraphs[:n_paragraphs])
+
+    # Filter out boilerplate paragraphs
+    skip_terms = [
+        "https://", "federal government", "site is secure", 
+        "The .gov means", "Before sharing sensitive information"
+    ]
+    filtered = []
+    for p in paragraphs:
+        txt = p.get_text().strip()
+        lower = txt.lower()
+        if not txt:
+            continue
+        if any(term in lower for term in skip_terms):
+            continue
+        # Also skip if it's just a heading-like short text
+        if len(txt.split()) < 5:
+            continue
+        filtered.append(p)
+        if len(filtered) >= n_paragraphs:
+            break
+        
+    # if filtering removed everything, fallback to top paragraphs
+    if not filtered:
+        filtered = paragraphs[:n_paragraphs]
+
+    snippet = " ".join(clean_text(p.get_text()) for p in filtered)
     return snippet
 
 # Fetch text snippets from multiple FDA guidance documents
