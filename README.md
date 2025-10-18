@@ -1,2 +1,2 @@
 # rag-lab
-A minimal retrieval-augmented generation (RAG) pipeline using LangChain and FLAN-T5.
+A retrieval-augmented generation (RAG) pipeline using LangChain and FLAN-T5. This repo explores how retrieval strategies affect factual grounding and citation faithfulness in biomedical retrieval-augmented generation (RAG). It contains scripts to fetch a small set of PubMed abstracts and FDA guidance texts, build a searchable BM25 index, run question-answer generation with inline citations, and evaluate grounding against known sources.
